@@ -93,3 +93,5 @@ appsettings.json
 local.settings.json
 
 dist
+
+logs/*.log

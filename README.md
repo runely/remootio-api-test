@@ -10,28 +10,56 @@ This repo is to be run on >= Node.js 22.
 
 The webhooks used to inform of error messages, state changes and when disconnect occurs, is webhooks created in Homey.
 
+To control the Remootio device, flows in Homey is used
+
 ### Webhooks
 
 #### ERROR_MESSAGE_WEBHOOK
 
 1. Go to https://my.homey.app/ and create a new flow (standard or advanced)
-2. Use the When flow card: Logic -> `Event has been received
+2. Use the When flow card: Logic -> `Event has been received`
    1. Set the `Event` tag to **remootioError** and copy the url from the information icon on the flow card
 3. Use the Push notification as the Then flow card to notify yourself that an error message has occured. You can reference the `Tag` in the message to show the error message sent from this test API
 
 #### STATE_CHANGE_WEBHOOK
 
 1. Go to https://my.homey.app/ and create a new flow (standard or advanced)
-2. Use the When flow card: Logic -> `Event has been received
+2. Use the When flow card: Logic -> `Event has been received`
     1. Set the `Event` tag to **remootioError** and copy the url from the information icon on the flow card
 3. Use the Push notification as the Then flow card to notify yourself that a state change has occured. You can reference the `Tag` in the message to show the state change sent from this test API
 
 #### DISCONNECT_WEBHOOK
 
 1. Go to https://my.homey.app/ and create a new flow (standard or advanced)
-2. Use the When flow card: Logic -> `Event has been received
+2. Use the When flow card: Logic -> `Event has been received`
     1. Set the `Event` tag to **remootioError** and copy the url from the information icon on the flow card
 3. Use the Push notification as the Then flow card to notify yourself that a disconnect has occured. You can reference the `Tag` in the message to show the disconnect message sent from this test API
+
+### Flows for controlling the Remootio device
+
+#### Open
+
+1. Go to https://my.homey.app/ and create a new flow (standard or advanced)
+2. Use the When flow card: Flow -> `This flow is started`
+3. Use the Then flow card Logic -> `Make a HTTP Method request to URL with headers Headers and body Body`
+   1. Set the `Method` to **GET**
+   2. Set the `URL` to **the-url-where-this-API-is-running/open** - Example: http://192.168.1.10/open
+
+#### Close
+
+1. Go to https://my.homey.app/ and create a new flow (standard or advanced)
+2. Use the When flow card: Flow -> `This flow is started`
+3. Use the Then flow card Logic -> `Make a HTTP Method request to URL with headers Headers and body Body`
+   1. Set the `Method` to **GET**
+   2. Set the `URL` to **the-url-where-this-API-is-running/close** - Example: http://192.168.1.10/close
+
+#### Status (optional)
+
+1. Go to https://my.homey.app/ and create a new flow (standard or advanced)
+2. Use the When flow card: Flow -> `This flow is started`
+3. Use the Then flow card Logic -> `Make a HTTP Method request to URL with headers Headers and body Body`
+   1. Set the `Method` to **GET**
+   2. Set the `URL` to **the-url-where-this-API-is-running/status** - Example: http://192.168.1.10/status
 
 ### WebSocket API
 

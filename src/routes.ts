@@ -1,11 +1,12 @@
 import { Request, Response, Router } from 'express';
-import Remootio from 'remootio-api-client'
-import axios from 'axios'
+import Remootio from 'remootio-api-client';
+import axios from 'axios';
+import { appendFileSync, mkdirSync, existsSync } from 'fs';
 import { ReceivedEncryptedFrameContent, ReceivedFrames, RemootioActionResponse } from 'remootio-api-client/lib/frames';
 
 import { KeyManagementEvent, LeftOpenEvent, RemootioStatus, StateEvent, TriggerEvent } from './types/remootio.type';
 
-import { config } from './config'
+import { config } from './config';
 
 const ipAddress = config.ipAddress;
 const apiSecretKey = config.apiSecretKey;
@@ -21,125 +22,135 @@ if (config.webhooks.errorMessage === undefined ||
   throw new Error('Invalid webhooks config');
 }
 
+const logEvent = (message: string): void => {
+  if (!existsSync('./logs')) {
+    mkdirSync('./logs');
+  }
+
+  const d = new Date();
+  console.log(message);
+  appendFileSync(`./logs/log_${d.getFullYear()}_${d.getMonth() + 1}_${d.getDate()}.log`, `[${d.toISOString()}] - ${message}\n`, 'utf8');
+}
+
 const handleResponseQuery = (payload: RemootioActionResponse): void => {
   const { response } = payload;
 
   if (!response.success) {
-    console.log('[ERROR] - QUERY - Failed:', response.errorCode);
+    logEvent(`[ERROR] - QUERY - Failed: ${response.errorCode}`);
     return;
   }
   
   remootioStatus = response.state === 'open'
     ? RemootioStatus.OPEN
     : RemootioStatus.CLOSED;
-  console.log('[INFO] - QUERY - State:', remootioStatus);
+  logEvent(`[INFO] - QUERY - State: ${remootioStatus}`);
 }
 
 const handleResponseTrigger = (payload: RemootioActionResponse): void => {
   const { response } = payload;
 
-  console.log('[INFO] - TRIGGER - Action was', response.success ? 'success' : 'failure', ':', response);
+  logEvent(`[INFO] - TRIGGER - Action was ${response.success ? 'success' : 'failure'} : ${response}`);
 }
 
 const handleResponseOpen = (payload: RemootioActionResponse): void => {
   const { response } = payload;
 
   if (!response.success) {
-    console.log('[ERROR] - OPEN - Failed:', response.errorCode);
+    logEvent(`[ERROR] - OPEN - Failed: ${response.errorCode}`);
     return;
   }
 
   remootioStatus = response.state === 'open'
     ? RemootioStatus.OPEN
     : RemootioStatus.CLOSED;
-  console.log('[INFO] - OPEN - State:', remootioStatus);
+  logEvent(`[INFO] - OPEN - State: ${remootioStatus}`);
 }
 
 const handleResponseClose = (payload: RemootioActionResponse): void => {
   const { response } = payload;
 
   if (!response.success) {
-    console.log('[ERROR] - CLOSE - Failed:', response.errorCode);
+    logEvent(`[ERROR] - CLOSE - Failed: ${response.errorCode}`);
     return;
   }
 
   remootioStatus = response.state === 'open'
     ? RemootioStatus.OPEN
     : RemootioStatus.CLOSED;
-  console.log('[INFO] - CLOSE - State:', remootioStatus);
+  logEvent(`[INFO] - CLOSE - State: ${remootioStatus}`);
 }
 
 const handleKeyManagementEvent = (payload: KeyManagementEvent): void => {
   const { event } = payload;
-  console.log('This is a KeyManagementEvent from Remootio device', event);
+  logEvent(`This is a KeyManagementEvent from Remootio device: ${JSON.stringify(event, null, 2)}`);
 }
 
 const handleLeftOpenEvent = (payload: LeftOpenEvent): void => {
   const { event } = payload;
-  console.log('This is a LeftOpenEvent from Remootio device. Gate has been left open for', event.data.timeOpen100ms * 0.1, 'seconds.', event.t100ms, '--', event);
+  logEvent(`This is a LeftOpenEvent from Remootio device. Gate has been left open for ${event.data.timeOpen100ms * 0.1} seconds. ${event.t100ms} -- ${JSON.stringify(event, null, 2)}`);
 }
 
 const handleTriggerEvent = (payload: TriggerEvent): void => {
   const { event } = payload;
-  console.log('This is a TriggerEvent from Remootio device', event);
+  logEvent(`This is a TriggerEvent from Remootio device: ${JSON.stringify(event, null, 2)}`);
   if (event.type === 'RelayTrigger') {
-    console.log('Relay triggered from Remootio device', event);
+    logEvent(`Relay triggered from Remootio device: ${JSON.stringify(event, null, 2)}`);
   }
   if (event.type === 'SecondaryRelayTrigger') {
-    console.log('Secondary Relay triggered from Remootio device', event);
+    logEvent(`Secondary Relay triggered from Remootio device: ${JSON.stringify(event, null, 2)}`);
   }
   if (event.type === 'Connected') {
-    console.log('Connected to Remootio device', event);
+    logEvent(`Connected to Remootio device: ${JSON.stringify(event, null, 2)}`);
   }
 }
 
 const handleStateEvent = (payload: StateEvent): void => {
   const { event } = payload;
-  console.log('This is a StateEvent from Remootio device', event);
+  logEvent(`This is a StateEvent from Remootio device: ${JSON.stringify(event, null, 2)}`);
   if (event.type === 'StateChange') {
     remootioStatus = event.state === 'open'
       ? RemootioStatus.OPEN
       : RemootioStatus.CLOSED;
-    console.log('[INFO] - StateChange:', event.state);
+    logEvent(`[INFO] - StateChange: ${event.state}`);
 
     const url = config.webhooks.stateChange!.replace('remootioStatus', remootioStatus)
     axios.get(url)
-      .catch(err => console.log(err))
+      .catch(err => logEvent(`Error occured when calling state change webhook: ${err}`));
   }
 }
 
 const onConnecting = (): void => {
-  console.log('Connecting to Remootio device');
+  logEvent('Connecting to Remootio device');
 }
 
 const onConnected = (): void => {
-  console.log('Connected to Remootio device. Starting authentication...');
+  logEvent('Connected to Remootio device. Starting authentication...');
   remootio.authenticate();
 }
 
 const onAuthenticated = (): void => {
-  console.log('Authenticated to Remootio device. Sending hello...');
+  logEvent('Authenticated to Remootio device. Sending hello...');
   remootio.sendHello();
 }
 
 const onError = (errorMessage: string): void => {
-  console.error('Remootio error occured:', errorMessage);
+  logEvent(`Remootio error occured: ${errorMessage}`);
 
   const url = config.webhooks.errorMessage!.replace('errorMessage', encodeURIComponent(errorMessage))
   axios.get(url)
-    .catch(err => console.error(err))
+    .catch(err => logEvent(`Error occured when calling error message webhook: ${err}`))
 }
 
 const onDisconnect = (): void => {
-  console.warn('Disconnected from Remootio device');
+  logEvent('Disconnected from Remootio device');
 
   axios.get(config.webhooks.disconnect!)
-    .catch(err => console.error(err))
+    .catch(err => logEvent(`Error occured when calling disconnect webhook: ${err}`))
 }
 
 const onIncomingMessage = (frame: ReceivedFrames, decryptedPayload?: ReceivedEncryptedFrameContent): void => {
   // 'SERVER_HELLO' || 'ERROR' || 'PONG' || 'ENCRYPTED'
-  //console.log('Received', frame.type, 'from Remootio:', JSON.stringify(frame, null, 2));
+  //logEvent(`Received ${frame.type} from Remootio: ${JSON.stringify(frame, null, 2)}`);
   
   if (!decryptedPayload) {
     return;
@@ -148,7 +159,7 @@ const onIncomingMessage = (frame: ReceivedFrames, decryptedPayload?: ReceivedEnc
   // 'CHALLENGE' || 'response' || 'event'
   const payloadKeys = Object.keys(decryptedPayload)
   if (!payloadKeys.includes('response') && !payloadKeys.includes('event')) {
-    console.log('This is not a response nor an event from Remootio device', JSON.stringify(decryptedPayload));
+    logEvent(`This is not a response nor an event from Remootio device: ${JSON.stringify(decryptedPayload, null, 2)}`);
     return;
   }
 
@@ -175,7 +186,7 @@ const onIncomingMessage = (frame: ReceivedFrames, decryptedPayload?: ReceivedEnc
       return;
     }
     
-    console.log('[WARN] - Unknown response:', response.response);
+    logEvent(`[WARN] - Unknown response: ${response.response}`);
     return;
   }
 
@@ -212,7 +223,7 @@ const onIncomingMessage = (frame: ReceivedFrames, decryptedPayload?: ReceivedEnc
 const router = Router();
 
 const remootio = new Remootio(ipAddress, apiSecretKey, apiAuthKey);
-console.log('Connecting to Remootio device with IP address', ipAddress);
+logEvent(`Connecting to Remootio device with IP address: ${ipAddress}`);
 
 remootio.on('connecting', onConnecting);
 remootio.on('connected', onConnected);
@@ -226,7 +237,7 @@ remootio.connect(true);
 let remootioStatus: RemootioStatus = RemootioStatus.UNKNOWN;
 
 router.get('/status', (req: Request, res: Response) => {
-  console.log(req.route.path, 'called');
+  logEvent(`${req.route.path} called`);
   res.json({
     isAuthenticated: remootio.isAuthenticated,
     isConnected: remootio.isConnected,
@@ -236,35 +247,35 @@ router.get('/status', (req: Request, res: Response) => {
 });
 
 router.get('/close', (req: Request, res: Response) => {
-  console.log(req.route.path, 'called');
+  logEvent(`${req.route.path} called`);
   if (remootioStatus === RemootioStatus.UNKNOWN) {
-    console.warn('Remootio not yet available. 🫷🫸');
+    logEvent('Remootio not yet available. 🫷🫸');
     return res.json({ status: 400, result: 'Remootio not yet available' });
   }
 
   if (remootioStatus === RemootioStatus.CLOSED) {
-    console.warn('Already closed. 🫷🫸');
+    logEvent('Already closed. 🫷🫸');
     return res.json({ result: 'Remootio already closed' });
   }
   
   remootio.sendClose();
-  console.log('close sent');
+  logEvent('close sent');
   res.json({ result: 'close sent' });
 });
 
 router.get('/open', (req: Request, res: Response) => {
-  console.log(req.route.path, 'called');
+  logEvent(`${req.route.path} called`);
   if (remootioStatus === RemootioStatus.UNKNOWN) {
     return res.json({ status: 400, result: 'Remootio not yet available' });
   }
 
   if (remootioStatus === RemootioStatus.OPEN) {
-    console.warn('Already open. 🫷🫸');
+    logEvent('Already open. 🫷🫸');
     return res.json({ result: 'Remootio already open' });
   }
 
   remootio.sendOpen();
-  console.log('open sent');
+  logEvent('open sent');
   res.json({ result: 'open sent' });
 });
 
