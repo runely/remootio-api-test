@@ -113,7 +113,7 @@ const handleStateEvent = (payload: StateEvent): void => {
       : RemootioStatus.CLOSED;
     logEvent(`[INFO] - StateChange: ${event.state}`);
 
-    const url = config.webhooks.stateChange!.replace('remootioStatus', remootioStatus)
+    const url = config.webhooks.stateChange!.replace('%remootioStatus%', remootioStatus)
     axios.get(url)
       .catch(err => logEvent(`Error occured when calling state change webhook: ${err}`));
   }
@@ -136,7 +136,7 @@ const onAuthenticated = (): void => {
 const onError = (errorMessage: string): void => {
   logEvent(`Remootio error occured: ${errorMessage}`);
 
-  const url = config.webhooks.errorMessage!.replace('errorMessage', encodeURIComponent(errorMessage))
+  const url = config.webhooks.errorMessage!.replace('%errorMessage%', encodeURIComponent(errorMessage))
   axios.get(url)
     .catch(err => logEvent(`Error occured when calling error message webhook: ${err}`))
 }
